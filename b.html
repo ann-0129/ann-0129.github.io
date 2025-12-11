@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <title>迷宮 + 光照效果</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #001f3f, #000000);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            background: transparent;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #success {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            pointer-events: none;
+            text-shadow: 0 0 20px white;
+        }
+
+        #success.show {
+            opacity: 1;
+        }
+
+        /* 難度按鈕 */
+        .buttons {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .buttons button {
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+
+        .buttons button:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+    </style>
+</head>
+
+<body>
+<div class="buttons">
+    <button onclick="setDifficulty('easy')">簡單</button>
+    <button onclick="setDifficulty('normal')">普通</button>
+    <button onclick="setDifficulty('hard')">困難</button>
+</div>
+
+<canvas id="mazeCanvas"></canvas>
+<div id="success">成功</div>
+
+<script>
+// === Canvas ===
+const canvas = document.getElementById("mazeCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let COLS = 30;
+let ROWS = 20;
+let CELL = 40;
+
+// 光圈位置
+let lightX = canvas.width / 2;
+let lightY = canvas.height / 2;
+let lightRadius = 200;
+
+// 起點終點
+let startX, startY;
+let finishX, finishY;
+
+// 顯示成功
+const successEl = document.getElementById("success");
+
+// 迷宮資料
+let grid;
+
+// === 建立迷宮 ===
+function createGrid() {
+    const grid = [];
+    for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) {
+            row.push({
+                r, c,
+                walls: { top: true, right: true, bottom: true, left: true },
+                visited: false,
+            });
+        }
+        grid.push(row);
+    }
+    return grid;
+}
+
+// === DFS 迷宮生成 ===
+function generateMaze() {
+    const stack = [];
+    let current = grid[0][0];
+    current.visited = true;
+
+    while (true) {
+        const neighbors = [];
+        const { r, c } = current;
+
+        if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
+        if (c < COLS - 1 && !grid[r][c + 1].visited) neighbors.push(grid[r][c + 1]);
+        if (r < ROWS - 1 && !grid[r + 1][c].visited) neighbors.push(grid[r + 1][c]);
+        if (c > 0 && !grid[r][c - 1].visited) neighbors.push(grid[r][c - 1]);
+
+        if (neighbors.length > 0) {
+            const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+            if (next.r === r - 1) { current.walls.top = false; next.walls.bottom = false; }
+            else if (next.c === c + 1) { current.walls.right = false; next.walls.left = false; }
+            else if (next.r === r + 1) { current.walls.bottom = false; next.walls.top = false; }
+            else if (next.c === c - 1) { current.walls.left = false; next.walls.right = false; }
+
+            stack.push(current);
+            current = next;
+            current.visited = true;
+        } else if (stack.length > 0) {
+            current = stack.pop();
+        } else break;
+    }
+}
+
+// === 畫迷宮到主 canvas or offscreen ctx ===
+function drawMazeLinesTo(c) {
+    c.strokeStyle = "#ffffff";
+    c.lineWidth = 3;
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c2 = 0; c2 < COLS; c2++) {
+            const cell = grid[r][c2];
+            const x = c2 * CELL;
+            const y = r * CELL;
+
+            c.beginPath();
+            if (cell.walls.top) c.moveTo(x, y), c.lineTo(x + CELL, y);
+            if (cell.walls.right) c.moveTo(x + CELL, y), c.lineTo(x + CELL, y + CELL);
+            if (cell.walls.bottom) c.moveTo(x, y + CELL), c.lineTo(x + CELL, y + CELL);
+            if (cell.walls.left) c.moveTo(x, y), c.lineTo(x, y + CELL);
+            c.stroke();
+        }
+    }
+
+    // 起點
+    c.fillStyle = "rgba(0,255,0,0.9)";
+    c.beginPath();
+    c.arc(startX, startY, CELL * 0.3, 0, Math.PI * 2);
+    c.fill();
+
+    // 終點
+    c.fillStyle = "rgba(255,0,0,0.9)";
+    c.beginPath();
+    c.arc(finishX, finishY, CELL * 0.3, 0, Math.PI * 2);
+    c.fill();
+}
+
+// === 光照效果 ===
+function drawLighting() {
+    const off = document.createElement("canvas");
+    off.width = canvas.width;
+    off.height = canvas.height;
+    const offCtx = off.getContext("2d");
+
+    // 迷宮 + 起點終點
+    drawMazeLinesTo(offCtx);
+
+    // 遮罩
+    const mask = offCtx.createRadialGradient(lightX, lightY, 0, lightX, lightY, lightRadius);
+    mask.addColorStop(0, "rgba(255,255,255,1)");
+    mask.addColorStop(1, "rgba(255,255,255,0)");
+
+    offCtx.globalCompositeOperation = "destination-in";
+    offCtx.fillStyle = mask;
+    offCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.drawImage(off, 0, 0);
+}
+
+// === 檢查終點 ===
+function checkGoal() {
+    if (Math.hypot(lightX - finishX, lightY - finishY) < CELL * 0.4) {
+        successEl.classList.add("show");
+    }
+}
+
+// === 重新生成迷宮 ===
+function rebuildMaze() {
+    grid = createGrid();
+    generateMaze();
+
+    startX = CELL / 2;
+    startY = CELL / 2;
+
+    finishX = (COLS - 1) * CELL + CELL / 2;
+    finishY = (ROWS - 1) * CELL + CELL / 2;
+
+    successEl.classList.remove("show");
+}
+
+// === 難度設定 ===
+function setDifficulty(level) {
+    if (level === "easy") { COLS = 20; ROWS = 14; CELL = 50; }
+    if (level === "normal") { COLS = 30; ROWS = 20; CELL = 40; }
+    if (level === "hard") { COLS = 45; ROWS = 30; CELL = 30; }
+
+    canvas.width = COLS * CELL;
+    canvas.height = ROWS * CELL;
+
+    rebuildMaze();
+}
+
+rebuildMaze();
+
+// === 主迴圈 ===
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawLighting();
+    checkGoal();
+    requestAnimationFrame(draw);
+}
+draw();
+
+// 滑鼠移動
+canvas.addEventListener("mousemove", e => {
+    const rect = canvas.getBoundingClientRect();
+    lightX = e.clientX - rect.left;
+    lightY = e.clientY - rect.top;
+});
+</script>
+</body>
+</html>
