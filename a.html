@@ -154,21 +154,29 @@ function drawMaze() {
 }
 
 // === 光照效果 ===
-function drawLighting() {
-    ctx.fillStyle = "rgba(0,0,0,0.88)";
+function drawLight() {
+    // 先把整個畫布蓋成背景色（或透明，因為 body 已經是漸層）
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ===== 1. 先畫迷宮（黑色） =====
+    ctx.strokeStyle = "#ffffff";   // 迷宮線條要讓光照到時顯示白色
+    ctx.lineWidth = 4;
+    drawMazeLines();               // ← 你原本用的迷宮線畫法
+
+    // ===== 2. 設定光圈「白色」 =====
+    const gradient = ctx.createRadialGradient(
+        lightX, lightY, 0,        // 中心
+        lightX, lightY, lightRadius  // 半徑
+    );
+    gradient.addColorStop(0, "rgba(255,255,255,1)");      // 中心最亮（白色）
+    gradient.addColorStop(1, "rgba(255,255,255,0)");      // 外圍透明
+
+    // ===== 3. 用「destination-in」讓只有光圈範圍的迷宮被留下 =====
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const radius = 200;
-
-    const gradient = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, radius);
-    gradient.addColorStop(0, "rgba(255,255,200,1)");
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
-
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(lightX, lightY, radius, 0, Math.PI * 2);
-    ctx.fill();
+    // ===== 4. 恢復模式 =====
     ctx.globalCompositeOperation = "source-over";
 }
 
