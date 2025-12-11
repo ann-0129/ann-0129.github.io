@@ -34,6 +34,15 @@ const CELL = 40;
 let lightX = canvas.width / 2;
 let lightY = canvas.height / 2;
 
+// === 背景顏色 ===
+function drawBackground() {
+    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bg.addColorStop(0, "#0B1732");   // 深藍霧霧色
+    bg.addColorStop(1, "#000000");   // 黑色
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 // === 建立迷宮資料 ===
 function createGrid() {
     const grid = [];
@@ -61,7 +70,6 @@ function generateMaze() {
 
     while (true) {
         const neighbors = [];
-
         const { r, c } = current;
 
         if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
@@ -72,7 +80,6 @@ function generateMaze() {
         if (neighbors.length > 0) {
             const next = neighbors[Math.floor(Math.random() * neighbors.length)];
 
-            // 打破牆壁
             if (next.r === r - 1) {
                 current.walls.top = false;
                 next.walls.bottom = false;
@@ -92,9 +99,7 @@ function generateMaze() {
             current.visited = true;
         } else if (stack.length > 0) {
             current = stack.pop();
-        } else {
-            break;
-        }
+        } else break;
     }
 }
 
@@ -102,7 +107,7 @@ generateMaze();
 
 // === 繪製迷宮 ===
 function drawMaze() {
-    ctx.strokeStyle = "#fff";
+    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
 
     for (let r = 0; r < ROWS; r++) {
@@ -112,26 +117,29 @@ function drawMaze() {
             const y = r * CELL;
 
             ctx.beginPath();
-            if (cell.walls.top) ctx.moveTo(x, y), ctx.lineTo(x + CELL, y);
-            if (cell.walls.right) ctx.moveTo(x + CELL, y), ctx.lineTo(x + CELL, y + CELL);
+            if (cell.walls.top)    ctx.moveTo(x, y), ctx.lineTo(x + CELL, y);
+            if (cell.walls.right)  ctx.moveTo(x + CELL, y), ctx.lineTo(x + CELL, y + CELL);
             if (cell.walls.bottom) ctx.moveTo(x, y + CELL), ctx.lineTo(x + CELL, y + CELL);
-            if (cell.walls.left) ctx.moveTo(x, y), ctx.lineTo(x, y + CELL);
+            if (cell.walls.left)   ctx.moveTo(x, y), ctx.lineTo(x, y + CELL);
             ctx.stroke();
         }
     }
 }
 
-// === 光照效果 ===
+// === 光照 ===
 function drawLighting() {
-    ctx.fillStyle = "rgba(0,0,0,0.88)";
+    // 黑色遮罩
+    ctx.fillStyle = "rgba(0, 0, 0, 0.90)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const radius = 200;
+    // 光圈半徑
+    const radius = 260;
 
     const gradient = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, radius);
-    gradient.addColorStop(0, "rgba(255,255,200,1)");
+    gradient.addColorStop(0, "rgba(255,255,220,1)");
     gradient.addColorStop(1, "rgba(0,0,0,0)");
 
+    // 打洞
     ctx.globalCompositeOperation = "destination-out";
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -140,9 +148,9 @@ function drawLighting() {
     ctx.globalCompositeOperation = "source-over";
 }
 
-// === 主繪製迴圈 ===
+// === 主迴圈 ===
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
     drawMaze();
     drawLighting();
     requestAnimationFrame(draw);
@@ -150,7 +158,7 @@ function draw() {
 
 draw();
 
-// === 滑鼠追隨光源 ===
+// === 滑鼠追蹤光源 ===
 canvas.addEventListener("mousemove", (e) => {
     const rect = canvas.getBoundingClientRect();
     lightX = e.clientX - rect.left;
