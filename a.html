@@ -43,7 +43,8 @@
 <canvas id="mazeCanvas"></canvas>
 <div id="success">成功</div>
 
-    // === Canvas ===
+<script>
+// === Canvas ===
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -85,7 +86,8 @@ function createGrid() {
 
 let grid = createGrid();
 
-// DFS 生成迷宮
+
+// === 迷宮生成（DFS）===
 function generateMaze() {
     const stack = [];
     let current = grid[0][0];
@@ -95,14 +97,119 @@ function generateMaze() {
         const neighbors = [];
         const { r, c } = current;
 
+        // 上下左右找未訪問
         if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
         if (c < COLS - 1 && !grid[r][c + 1].visited) neighbors.push(grid[r][c + 1]);
         if (r < ROWS - 1 && !grid[r + 1][c].visited) neighbors.push(grid[r + 1][c]);
         if (c > 0 && !grid[r][c - 1].visited) neighbors.push(grid[r][c - 1]);
 
         if (neighbors.length > 0) {
-            con
+            const next = neighbors[Math.floor(Math.random() * neighbors.length)];
 
+            // 移除牆壁
+            if (next.r === r - 1) { current.walls.top = false; next.walls.bottom = false; }
+            if (next.c === c + 1) { current.walls.right = false; next.walls.left = false; }
+            if (next.r === r + 1) { current.walls.bottom = false; next.walls.top = false; }
+            if (next.c === c - 1) { current.walls.left = false; next.walls.right = false; }
+
+            stack.push(current);
+            next.visited = true;
+            current = next;
+        } else if (stack.length > 0) {
+            current = stack.pop();
+        } else break;
+    }
+}
+
+generateMaze();
+
+
+// === 繪製迷宮（線條版）===
+function drawMaze() {
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "white";
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            const cell = grid[r][c];
+            const x = c * CELL;
+            const y = r * CELL;
+
+            ctx.beginPath();
+            if (cell.walls.top) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + CELL, y);
+            }
+            if (cell.walls.right) {
+                ctx.moveTo(x + CELL, y);
+                ctx.lineTo(x + CELL, y + CELL);
+            }
+            if (cell.walls.bottom) {
+                ctx.moveTo(x, y + CELL);
+                ctx.lineTo(x + CELL, y + CELL);
+            }
+            if (cell.walls.left) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + CELL);
+            }
+            ctx.stroke();
+        }
+    }
+}
+
+
+// === 光照遮罩：沒照到的地方全部變黑 ===
+function applyLightMask() {
+    const gradient = ctx.createRadialGradient(
+        lightX, lightY, 0,
+        lightX, lightY, lightRadius
+    );
+
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(1, "rgba(0,0,0,1)");
+
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-over";
+}
+
+
+// === 檢查是否到達終點 ===
+let success = false;
+
+function checkFinish() {
+    if (success) return;
+
+    const dx = lightX - finishX;
+    const dy = lightY - finishY;
+    if (Math.sqrt(dx * dx + dy * dy) < 50) {
+        success = true;
+        successEl.classList.add("show");
+    }
+}
+
+
+// === 主渲染 ===
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawMaze();
+    applyLightMask();
+    checkFinish();
+
+    requestAnimationFrame(render);
+}
+
+render();
+
+
+// 滑鼠移動更新光圈
+window.addEventListener("mousemove", (e) => {
+    lightX = e.clientX;
+    lightY = e.clientY;
+});
+</script>
 
 </body>
 </html>
