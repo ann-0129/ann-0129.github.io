@@ -59,15 +59,14 @@ const CELL = 40;
 // 光圈位置
 let lightX = canvas.width / 2;
 let lightY = canvas.height / 2;
-let lightRadius = 180;
+let lightRadius = 200; // **光圈更明顯**
 
-// 終點
 const finishX = (COLS - 1) * CELL + CELL / 2;
 const finishY = (ROWS - 1) * CELL + CELL / 2;
 
 const successEl = document.getElementById("success");
 
-// 建立迷宮網格
+// === 建立迷宮 ===
 function createGrid() {
     const grid = [];
     for (let r = 0; r < ROWS; r++) {
@@ -86,8 +85,7 @@ function createGrid() {
 
 let grid = createGrid();
 
-
-// === 迷宮生成（DFS）===
+// === DFS 迷宮生成 ===
 function generateMaze() {
     const stack = [];
     let current = grid[0][0];
@@ -97,7 +95,6 @@ function generateMaze() {
         const neighbors = [];
         const { r, c } = current;
 
-        // 上下左右找未訪問
         if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
         if (c < COLS - 1 && !grid[r][c + 1].visited) neighbors.push(grid[r][c + 1]);
         if (r < ROWS - 1 && !grid[r + 1][c].visited) neighbors.push(grid[r + 1][c]);
@@ -106,15 +103,14 @@ function generateMaze() {
         if (neighbors.length > 0) {
             const next = neighbors[Math.floor(Math.random() * neighbors.length)];
 
-            // 移除牆壁
-            if (next.r === r - 1) { current.walls.top = false; next.walls.bottom = false; }
-            if (next.c === c + 1) { current.walls.right = false; next.walls.left = false; }
-            if (next.r === r + 1) { current.walls.bottom = false; next.walls.top = false; }
-            if (next.c === c - 1) { current.walls.left = false; next.walls.right = false; }
+            if (next.r === r - 1) (current.walls.top = false, next.walls.bottom = false);
+            else if (next.c === c + 1) (current.walls.right = false, next.walls.left = false);
+            else if (next.r === r + 1) (current.walls.bottom = false, next.walls.top = false);
+            else if (next.c === c - 1) (current.walls.left = false, next.walls.right = false);
 
             stack.push(current);
-            next.visited = true;
             current = next;
+            current.visited = true;
         } else if (stack.length > 0) {
             current = stack.pop();
         } else break;
@@ -123,11 +119,10 @@ function generateMaze() {
 
 generateMaze();
 
-
-// === 繪製迷宮（線條版）===
-function drawMaze() {
+// === 繪製迷宮線條 ===
+function drawMazeLines() {
+    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 3;
-    ctx.strokeStyle = "white";
 
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -136,78 +131,87 @@ function drawMaze() {
             const y = r * CELL;
 
             ctx.beginPath();
-            if (cell.walls.top) {
-                ctx.moveTo(x, y);
-                ctx.lineTo(x + CELL, y);
-            }
-            if (cell.walls.right) {
-                ctx.moveTo(x + CELL, y);
-                ctx.lineTo(x + CELL, y + CELL);
-            }
-            if (cell.walls.bottom) {
-                ctx.moveTo(x, y + CELL);
-                ctx.lineTo(x + CELL, y + CELL);
-            }
-            if (cell.walls.left) {
-                ctx.moveTo(x, y);
-                ctx.lineTo(x, y + CELL);
-            }
+            if (cell.walls.top) ctx.moveTo(x, y), ctx.lineTo(x + CELL, y);
+            if (cell.walls.right) ctx.moveTo(x + CELL, y), ctx.lineTo(x + CELL, y + CELL);
+            if (cell.walls.bottom) ctx.moveTo(x, y + CELL), ctx.lineTo(x + CELL, y + CELL);
+            if (cell.walls.left) ctx.moveTo(x, y), ctx.lineTo(x, y + CELL);
             ctx.stroke();
         }
     }
 }
 
+// === 光照：只有光圈內部看得到迷宮 ===
+function drawLighting() {
+    // Step 1: 先畫迷宮到 offscreen canvas
+    const off = document.createElement("canvas");
+    off.width = canvas.width;
+    off.height = canvas.height;
+    const offCtx = off.getContext("2d");
 
-// === 光照遮罩：沒照到的地方全部變黑 ===
-function applyLightMask() {
-    const gradient = ctx.createRadialGradient(
+    offCtx.strokeStyle = "#ffffff";
+    offCtx.lineWidth = 3;
+    drawMazeLinesTo(offCtx);
+
+    // Step 2: 畫光圈遮罩
+    const mask = offCtx.createRadialGradient(
         lightX, lightY, 0,
         lightX, lightY, lightRadius
     );
+    mask.addColorStop(0, "rgba(255,255,255,1)");
+    mask.addColorStop(1, "rgba(255,255,255,0)");
 
-    gradient.addColorStop(0, "rgba(255,255,255,1)");
-    gradient.addColorStop(1, "rgba(0,0,0,1)");
+    offCtx.globalCompositeOperation = "destination-in";
+    offCtx.fillStyle = mask;
+    offCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.globalCompositeOperation = "destination-in";
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = "source-over";
+    // Step 3: 把處理後的畫面畫回主 canvas
+    ctx.drawImage(off, 0, 0);
 }
 
+// 專門給 offscreen 的版本
+function drawMazeLinesTo(c) {
+    c.strokeStyle = "#ffffff";
+    c.lineWidth = 3;
 
-// === 檢查是否到達終點 ===
-let success = false;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c2 = 0; c2 < COLS; c2++) {
+            const cell = grid[r][c2];
+            const x = c2 * CELL;
+            const y = r * CELL;
 
-function checkFinish() {
-    if (success) return;
+            c.beginPath();
+            if (cell.walls.top) c.moveTo(x, y), c.lineTo(x + CELL, y);
+            if (cell.walls.right) c.moveTo(x + CELL, y), c.lineTo(x + CELL, y + CELL);
+            if (cell.walls.bottom) c.moveTo(x, y + CELL), c.lineTo(x + CELL, y + CELL);
+            if (cell.walls.left) c.moveTo(x, y), c.lineTo(x, y + CELL);
+            c.stroke();
+        }
+    }
+}
 
-    const dx = lightX - finishX;
-    const dy = lightY - finishY;
-    if (Math.sqrt(dx * dx + dy * dy) < 50) {
-        success = true;
+// === 檢查終點 ===
+function checkGoal() {
+    if (Math.hypot(lightX - finishX, lightY - finishY) < 40) {
         successEl.classList.add("show");
     }
 }
 
-
-// === 主渲染 ===
-function render() {
+// === 每幀繪製 ===
+function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawLighting();
+    checkGoal();
 
-    drawMaze();
-    applyLightMask();
-    checkFinish();
-
-    requestAnimationFrame(render);
+    requestAnimationFrame(draw);
 }
 
-render();
+draw();
 
-
-// 滑鼠移動更新光圈
-window.addEventListener("mousemove", (e) => {
-    lightX = e.clientX;
-    lightY = e.clientY;
+// === 滑鼠移動 ===
+canvas.addEventListener("mousemove", e => {
+    const rect = canvas.getBoundingClientRect();
+    lightX = e.clientX - rect.left;
+    lightY = e.clientY - rect.top;
 });
 </script>
 
