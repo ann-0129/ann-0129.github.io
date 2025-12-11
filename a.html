@@ -3,51 +3,44 @@
 <head>
     <meta charset="UTF-8" />
     <title>迷宮 + 光照效果</title>
+
     <style>
-       body {
-    margin: 0;
-    padding: 0;
-    background: linear-gradient(180deg, #001f3f, #000000);
-    height: 100vh;
-}
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #001f3f, #000000);
+            height: 100vh;
+            overflow: hidden;
+        }
+
         canvas {
-    background: transparent;
-    display: block;
-    margin: 0 auto;
-}
+            background: transparent;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #success {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            pointer-events: none;
+            text-shadow: 0 0 20px white;
+        }
+
+        #success.show {
+            opacity: 1;
+        }
     </style>
 </head>
+
 <body>
 <canvas id="mazeCanvas"></canvas>
-
-<canvas id="mazeCanvas"></canvas>
-
-<style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: linear-gradient(180deg, #0B1732, #000000);
-    }
-
-    #success {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 60px;
-        color: white;
-        font-weight: bold;
-        opacity: 0;
-        transition: opacity 0.8s ease;
-        pointer-events: none;
-        text-shadow: 0 0 20px white;
-    }
-
-    #success.show {
-        opacity: 1;
-    }
-</style>
-
 <div id="success">成功</div>
 
 <script>
@@ -62,15 +55,19 @@ const COLS = 30;
 const ROWS = 20;
 const CELL = 40;
 
+// 光位置
 let lightX = canvas.width / 2;
 let lightY = canvas.height / 2;
+let lightRadius = 180;
 
+// 終點位置
 const finishX = (COLS - 1) * CELL + CELL / 2;
 const finishY = (ROWS - 1) * CELL + CELL / 2;
 
 const successEl = document.getElementById("success");
 
-// === 建立迷宮 ===
+
+// === 建立迷宮格子 ===
 function createGrid() {
     const grid = [];
     for (let r = 0; r < ROWS; r++) {
@@ -89,7 +86,8 @@ function createGrid() {
 
 let grid = createGrid();
 
-// === DFS 迷宮 ===
+
+// === DFS 生成迷宮 ===
 function generateMaze() {
     const stack = [];
     let current = grid[0][0];
@@ -132,7 +130,8 @@ function generateMaze() {
 
 generateMaze();
 
-// === 繪製迷宮 ===
+
+// === 畫迷宮線條 ===
 function drawMaze() {
     ctx.strokeStyle = "#89A7FF";
     ctx.lineWidth = 3;
@@ -153,59 +152,59 @@ function drawMaze() {
     }
 }
 
-// === 光照效果 ===
+
+// === 白色光圈照亮迷宮 ===
 function drawLight() {
-    // 先把整個畫布蓋成背景色（或透明，因為 body 已經是漸層）
+    // 清掉畫布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ===== 1. 先畫迷宮（黑色） =====
-    ctx.strokeStyle = "#ffffff";   // 迷宮線條要讓光照到時顯示白色
+    // 先畫白色迷宮（稍粗一點，光圈會保留這部分）
+    ctx.strokeStyle = "white";
     ctx.lineWidth = 4;
-    drawMazeLines();               // ← 你原本用的迷宮線畫法
+    drawMaze();
 
-    // ===== 2. 設定光圈「白色」 =====
+    // 建立白色光圈
     const gradient = ctx.createRadialGradient(
-        lightX, lightY, 0,        // 中心
-        lightX, lightY, lightRadius  // 半徑
+        lightX, lightY, 0,
+        lightX, lightY, lightRadius
     );
-    gradient.addColorStop(0, "rgba(255,255,255,1)");      // 中心最亮（白色）
-    gradient.addColorStop(1, "rgba(255,255,255,0)");      // 外圍透明
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
 
-    // ===== 3. 用「destination-in」讓只有光圈範圍的迷宮被留下 =====
+    // 光圈以外的迷宮全部消失
     ctx.globalCompositeOperation = "destination-in";
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // ===== 4. 恢復模式 =====
     ctx.globalCompositeOperation = "source-over";
 }
 
-// === 終點光圈 ===
+
+// === 詢問是否達到終點 ===
 function checkGoal() {
     if (Math.hypot(lightX - finishX, lightY - finishY) < 40) {
         successEl.classList.add("show");
     }
 }
 
-// === 主程式 ===
+
+// === 主更新函式 ===
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    drawMaze();
-    drawLighting();
+    drawLight();
     checkGoal();
-
     requestAnimationFrame(draw);
 }
 
 draw();
 
-// === 滑鼠移動 ===
+
+// === 滑鼠跟著光移動 ===
 canvas.addEventListener("mousemove", (e) => {
     const rect = canvas.getBoundingClientRect();
     lightX = e.clientX - rect.left;
     lightY = e.clientY - rect.top;
 });
 </script>
+
 </body>
 </html>
