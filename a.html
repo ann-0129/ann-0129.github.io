@@ -19,8 +19,38 @@
 <body>
 <canvas id="mazeCanvas"></canvas>
 
+<canvas id="mazeCanvas"></canvas>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: linear-gradient(180deg, #0B1732, #000000);
+    }
+
+    #success {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 60px;
+        color: white;
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        pointer-events: none;
+        text-shadow: 0 0 20px white;
+    }
+
+    #success.show {
+        opacity: 1;
+    }
+</style>
+
+<div id="success">成功</div>
+
 <script>
-// === 基本設定 ===
+// === Canvas ===
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -34,16 +64,12 @@ const CELL = 40;
 let lightX = canvas.width / 2;
 let lightY = canvas.height / 2;
 
-// === 背景顏色 ===
-function drawBackground() {
-    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    bg.addColorStop(0, "#0B1732");   // 深藍霧霧色
-    bg.addColorStop(1, "#000000");   // 黑色
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
+const finishX = (COLS - 1) * CELL + CELL / 2;
+const finishY = (ROWS - 1) * CELL + CELL / 2;
 
-// === 建立迷宮資料 ===
+const successEl = document.getElementById("success");
+
+// === 建立迷宮 ===
 function createGrid() {
     const grid = [];
     for (let r = 0; r < ROWS; r++) {
@@ -62,7 +88,7 @@ function createGrid() {
 
 let grid = createGrid();
 
-// === 迷宮生成（深度優先） ===
+// === DFS 迷宮 ===
 function generateMaze() {
     const stack = [];
     let current = grid[0][0];
@@ -107,8 +133,8 @@ generateMaze();
 
 // === 繪製迷宮 ===
 function drawMaze() {
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#89A7FF";
+    ctx.lineWidth = 3;
 
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -117,29 +143,26 @@ function drawMaze() {
             const y = r * CELL;
 
             ctx.beginPath();
-            if (cell.walls.top)    ctx.moveTo(x, y), ctx.lineTo(x + CELL, y);
-            if (cell.walls.right)  ctx.moveTo(x + CELL, y), ctx.lineTo(x + CELL, y + CELL);
+            if (cell.walls.top) ctx.moveTo(x, y), ctx.lineTo(x + CELL, y);
+            if (cell.walls.right) ctx.moveTo(x + CELL, y), ctx.lineTo(x + CELL, y + CELL);
             if (cell.walls.bottom) ctx.moveTo(x, y + CELL), ctx.lineTo(x + CELL, y + CELL);
-            if (cell.walls.left)   ctx.moveTo(x, y), ctx.lineTo(x, y + CELL);
+            if (cell.walls.left) ctx.moveTo(x, y), ctx.lineTo(x, y + CELL);
             ctx.stroke();
         }
     }
 }
 
-// === 光照 ===
+// === 光照效果 ===
 function drawLighting() {
-    // 黑色遮罩
-    ctx.fillStyle = "rgba(0, 0, 0, 0.90)";
+    ctx.fillStyle = "rgba(0,0,0,0.88)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 光圈半徑
-    const radius = 260;
+    const radius = 200;
 
     const gradient = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, radius);
-    gradient.addColorStop(0, "rgba(255,255,220,1)");
+    gradient.addColorStop(0, "rgba(255,255,200,1)");
     gradient.addColorStop(1, "rgba(0,0,0,0)");
 
-    // 打洞
     ctx.globalCompositeOperation = "destination-out";
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -148,17 +171,27 @@ function drawLighting() {
     ctx.globalCompositeOperation = "source-over";
 }
 
-// === 主迴圈 ===
+// === 終點光圈 ===
+function checkGoal() {
+    if (Math.hypot(lightX - finishX, lightY - finishY) < 40) {
+        successEl.classList.add("show");
+    }
+}
+
+// === 主程式 ===
 function draw() {
-    drawBackground();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     drawMaze();
     drawLighting();
+    checkGoal();
+
     requestAnimationFrame(draw);
 }
 
 draw();
 
-// === 滑鼠追蹤光源 ===
+// === 滑鼠移動 ===
 canvas.addEventListener("mousemove", (e) => {
     const rect = canvas.getBoundingClientRect();
     lightX = e.clientX - rect.left;
