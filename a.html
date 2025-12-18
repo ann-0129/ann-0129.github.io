@@ -189,15 +189,29 @@ function drawLighting(){
 }
 
 // ================= 真正的牆壁碰撞 =================
-function canMove(dx,dy){
+function canMove(dx, dy) {
     const col = Math.floor(player.x / CELL);
     const row = Math.floor(player.y / CELL);
-    const cell = grid[row][col];
 
-    if(dx < 0 && cell.walls.left) return false;
-    if(dx > 0 && cell.walls.right) return false;
-    if(dy < 0 && cell.walls.top) return false;
-    if(dy > 0 && cell.walls.bottom) return false;
+    if (row < 0 || col < 0 || row >= ROWS || col >= COLS) return false;
+
+    const cell = grid[row][col];
+    const buffer = player.r + 2; // 碰撞緩衝距離
+
+    const localX = player.x - col * CELL;
+    const localY = player.y - row * CELL;
+
+    // 左牆
+    if (dx < 0 && cell.walls.left && localX <= buffer) return false;
+
+    // 右牆
+    if (dx > 0 && cell.walls.right && localX >= CELL - buffer) return false;
+
+    // 上牆
+    if (dy < 0 && cell.walls.top && localY <= buffer) return false;
+
+    // 下牆
+    if (dy > 0 && cell.walls.bottom && localY >= CELL - buffer) return false;
 
     return true;
 }
