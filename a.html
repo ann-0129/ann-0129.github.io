@@ -1,108 +1,88 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<title>迷宮 + 光照效果</title>
+<meta charset="UTF-8">
+<title>迷宮 + 光照</title>
 
 <style>
-body {
-    margin: 0;
-    padding: 0;
-    background: linear-gradient(180deg, #001f3f, #000000);
-    height: 100vh;
-    overflow: hidden;
+body{
+    margin:0;
+    overflow:hidden;
+    background:linear-gradient(180deg,#001f3f,#000000);
 }
-canvas {
-    background: transparent;
-    display: block;
-    margin: 0 auto;
+canvas{
+    display:block;
 }
-#success {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 60px;
-    color: white;
-    font-weight: bold;
-    opacity: 0;
-    transition: opacity 0.8s ease;
-    pointer-events: none;
-    text-shadow: 0 0 20px white;
+#ui{
+    position:fixed;
+    top:20px;
+    right:20px;
+    display:flex;
+    gap:10px;
+    z-index:10;
 }
-#success.show { opacity: 1; }
-
-.buttons {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
+#ui button{
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    background:#324376;
+    color:#fff;
+    cursor:pointer;
 }
-.buttons button {
-    padding: 10px 18px;
-    font-size: 16px;
-    border-radius: 8px;
-    border: none;
-    background: #324376;
-    color: white;
-    cursor: pointer;
+#success{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:60px;
+    color:white;
+    font-weight:bold;
+    opacity:0;
+    transition:.8s;
+    pointer-events:none;
+    text-shadow:0 0 20px white;
 }
+#success.show{opacity:1;}
 </style>
 </head>
 
 <body>
-<div class="buttons">
-    <button onclick="setDifficulty('easy')">簡單</button>
-    <button onclick="setDifficulty('normal')">普通</button>
-    <button onclick="setDifficulty('hard')">困難</button>
+<div id="ui">
+    <button onclick="startGame('easy')">簡單</button>
+    <button onclick="startGame('normal')">普通</button>
+    <button onclick="startGame('hard')">困難</button>
 </div>
-
-<canvas id="mazeCanvas"></canvas>
 <div id="success">成功</div>
+<canvas id="mazeCanvas"></canvas>
 
 <script>
-// === Canvas ===
+/* ================= 基本設定 ================= */
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
 
-// === 玩家 / 光源 ===
-let playerX = 0;
-let playerY = 0;
-let lightX = 0;
-let lightY = 0;
-let lightRadius = 200;
-const SPEED = 4;
+let COLS=30, ROWS=20, CELL=40;
+let grid=[];
+let playerX=0, playerY=0;
+let lightX=0, lightY=0;
+let targetX=0, targetY=0;
+let SPEED=3;
+let lightRadius=200;
+let finish={x:0,y:0};
 
-// === 迷宮參數 ===
-let COLS = 30;
-let ROWS = 20;
-let CELL = 40;
-let grid = [];
+const successEl=document.getElementById("success");
 
-// 起點 / 終點
-let startX, startY;
-let finishX, finishY;
-
-const successEl = document.getElementById("success");
-
-// Resize
-function resize() {
-    canvas.width = COLS * CELL;
-    canvas.height = ROWS * CELL;
-}
-resize();
-
-// === 建立迷宮 ===
-function createGrid() {
-    const g = [];
-    for (let r = 0; r < ROWS; r++) {
-        const row = [];
-        for (let c = 0; c < COLS; c++) {
+/* ================= 迷宮 ================= */
+function createGrid(){
+    const g=[];
+    for(let r=0;r<ROWS;r++){
+        const row=[];
+        for(let c=0;c<COLS;c++){
             row.push({
-                r, c,
-                visited: false,
-                walls: { top: true, right: true, bottom: true, left: true }
+                r,c,visited:false,
+                walls:{top:true,right:true,bottom:true,left:true}
             });
         }
         g.push(row);
@@ -110,169 +90,140 @@ function createGrid() {
     return g;
 }
 
-// === DFS 生成 ===
-function generateMaze() {
-    grid = createGrid();
-    const stack = [];
-    let current = grid[0][0];
-    current.visited = true;
+function generateMaze(){
+    grid=createGrid();
+    const stack=[];
+    let cur=grid[0][0];
+    cur.visited=true;
 
-    while (true) {
-        const n = [];
-        const { r, c } = current;
+    while(true){
+        const {r,c}=cur;
+        const n=[];
+        if(r>0&&!grid[r-1][c].visited)n.push(grid[r-1][c]);
+        if(c<COLS-1&&!grid[r][c+1].visited)n.push(grid[r][c+1]);
+        if(r<ROWS-1&&!grid[r+1][c].visited)n.push(grid[r+1][c]);
+        if(c>0&&!grid[r][c-1].visited)n.push(grid[r][c-1]);
 
-        if (r > 0 && !grid[r - 1][c].visited) n.push(grid[r - 1][c]);
-        if (c < COLS - 1 && !grid[r][c + 1].visited) n.push(grid[r][c + 1]);
-        if (r < ROWS - 1 && !grid[r + 1][c].visited) n.push(grid[r + 1][c]);
-        if (c > 0 && !grid[r][c - 1].visited) n.push(grid[r][c - 1]);
-
-        if (n.length) {
-            const next = n[Math.random() * n.length | 0];
-
-            if (next.r === r - 1) { current.walls.top = false; next.walls.bottom = false; }
-            if (next.c === c + 1) { current.walls.right = false; next.walls.left = false; }
-            if (next.r === r + 1) { current.walls.bottom = false; next.walls.top = false; }
-            if (next.c === c - 1) { current.walls.left = false; next.walls.right = false; }
-
-            stack.push(current);
-            current = next;
-            current.visited = true;
-        } else if (stack.length) {
-            current = stack.pop();
-        } else break;
+        if(n.length){
+            const next=n[Math.random()*n.length|0];
+            if(next.r===r-1){cur.walls.top=false;next.walls.bottom=false;}
+            if(next.c===c+1){cur.walls.right=false;next.walls.left=false;}
+            if(next.r===r+1){cur.walls.bottom=false;next.walls.top=false;}
+            if(next.c===c-1){cur.walls.left=false;next.walls.right=false;}
+            stack.push(cur);
+            cur=next;
+            cur.visited=true;
+        }else if(stack.length){
+            cur=stack.pop();
+        }else break;
     }
+
+    playerX=CELL/2;
+    playerY=CELL/2;
+    lightX=playerX;
+    lightY=playerY;
+    targetX=playerX;
+    targetY=playerY;
+
+    finish.x=(COLS-1)*CELL+CELL/2;
+    finish.y=(ROWS-1)*CELL+CELL/2;
 }
 
-// === 畫迷宮到指定 context ===
-function drawMazeTo(c) {
-    c.strokeStyle = "#ffffff";
-    c.lineWidth = 3;
-
-    for (let r = 0; r < ROWS; r++) {
-        for (let col = 0; col < COLS; col++) {
-            const cell = grid[r][col];
-            const x = col * CELL;
-            const y = r * CELL;
-
+/* ================= 繪製迷宮線 ================= */
+function drawMazeLinesTo(c){
+    c.strokeStyle="#ffffff";
+    c.lineWidth=3;
+    for(let r=0;r<ROWS;r++){
+        for(let col=0;col<COLS;col++){
+            const cell=grid[r][col];
+            const x=col*CELL,y=r*CELL;
             c.beginPath();
-            if (cell.walls.top) c.moveTo(x, y), c.lineTo(x + CELL, y);
-            if (cell.walls.right) c.moveTo(x + CELL, y), c.lineTo(x + CELL, y + CELL);
-            if (cell.walls.bottom) c.moveTo(x, y + CELL), c.lineTo(x + CELL, y + CELL);
-            if (cell.walls.left) c.moveTo(x, y), c.lineTo(x, y + CELL);
+            if(cell.walls.top)c.moveTo(x,y),c.lineTo(x+CELL,y);
+            if(cell.walls.right)c.moveTo(x+CELL,y),c.lineTo(x+CELL,y+CELL);
+            if(cell.walls.bottom)c.moveTo(x,y+CELL),c.lineTo(x+CELL,y+CELL);
+            if(cell.walls.left)c.moveTo(x,y),c.lineTo(x,y+CELL);
             c.stroke();
         }
     }
-
-    // 起點
-    c.fillStyle = "rgba(0,255,0,0.9)";
-    c.beginPath();
-    c.arc(startX, startY, CELL * 0.3, 0, Math.PI * 2);
-    c.fill();
-
-    // 終點
-    c.fillStyle = "rgba(255,0,0,0.9)";
-    c.beginPath();
-    c.arc(finishX, finishY, CELL * 0.3, 0, Math.PI * 2);
-    c.fill();
 }
 
-// === 光照（保持你現在成功的效果） ===
-function drawLighting() {
-    const off = document.createElement("canvas");
-    off.width = canvas.width;
-    off.height = canvas.height;
-    const o = off.getContext("2d");
+/* ================= 光照 ================= */
+function drawLighting(){
+    const off=document.createElement("canvas");
+    off.width=canvas.width;
+    off.height=canvas.height;
+    const octx=off.getContext("2d");
 
-    drawMazeTo(o);
+    drawMazeLinesTo(octx);
 
-    const g = o.createRadialGradient(lightX, lightY, 0, lightX, lightY, lightRadius);
-    g.addColorStop(0, "rgba(255,255,255,1)");
-    g.addColorStop(1, "rgba(255,255,255,0)");
+    const g=octx.createRadialGradient(lightX,lightY,0,lightX,lightY,lightRadius);
+    g.addColorStop(0,"rgba(255,255,255,1)");
+    g.addColorStop(1,"rgba(255,255,255,0)");
 
-    o.globalCompositeOperation = "destination-in";
-    o.fillStyle = g;
-    o.fillRect(0, 0, off.width, off.height);
+    octx.globalCompositeOperation="destination-in";
+    octx.fillStyle=g;
+    octx.fillRect(0,0,off.width,off.height);
 
-    ctx.drawImage(off, 0, 0);
+    ctx.drawImage(off,0,0);
 }
 
-// === 不能穿牆判斷 ===
-function canMove(nx, ny) {
-    const col = Math.floor(playerX / CELL);
-    const row = Math.floor(playerY / CELL);
-    if (!grid[row] || !grid[row][col]) return false;
-
-    const cell = grid[row][col];
-    if (nx > playerX && cell.walls.right) return false;
-    if (nx < playerX && cell.walls.left) return false;
-    if (ny > playerY && cell.walls.bottom) return false;
-    if (ny < playerY && cell.walls.top) return false;
+/* ================= 碰牆 ================= */
+function canMove(nx,ny){
+    const c=Math.floor(nx/CELL);
+    const r=Math.floor(ny/CELL);
+    if(r<0||c<0||r>=ROWS||c>=COLS)return false;
+    const cell=grid[r][c];
+    const lx=nx-c*CELL, ly=ny-r*CELL;
+    if(cell.walls.left&&lx<4)return false;
+    if(cell.walls.right&&lx>CELL-4)return false;
+    if(cell.walls.top&&ly<4)return false;
+    if(cell.walls.bottom&&ly>CELL-4)return false;
     return true;
 }
 
-// === 滑鼠引導移動 ===
-canvas.addEventListener("mousemove", e => {
-    const rect = canvas.getBoundingClientRect();
-    const tx = e.clientX - rect.left;
-    const ty = e.clientY - rect.top;
-
-    const dx = tx - playerX;
-    const dy = ty - playerY;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 1) return;
-
-    const nx = playerX + dx / dist * SPEED;
-    const ny = playerY + dy / dist * SPEED;
-
-    if (canMove(nx, ny)) {
-        playerX = nx;
-        playerY = ny;
+/* ================= 主迴圈 ================= */
+function loop(){
+    const dx=targetX-playerX;
+    const dy=targetY-playerY;
+    const d=Math.hypot(dx,dy);
+    if(d>1){
+        const nx=playerX+dx/d*SPEED;
+        const ny=playerY+dy/d*SPEED;
+        if(canMove(nx,ny)){
+            playerX=nx;
+            playerY=ny;
+        }
     }
+    lightX=playerX;
+    lightY=playerY;
 
-    lightX = playerX;
-    lightY = playerY;
-});
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawLighting();
 
-// === 終點判斷 ===
-function checkGoal() {
-    if (Math.hypot(playerX - finishX, playerY - finishY) < CELL * 0.4) {
+    if(Math.hypot(playerX-finish.x,playerY-finish.y)<CELL/2){
         successEl.classList.add("show");
     }
-}
 
-// === 難度 ===
-function setDifficulty(lv) {
-    if (lv === "easy") { COLS = 20; ROWS = 14; CELL = 50; }
-    if (lv === "normal") { COLS = 30; ROWS = 20; CELL = 40; }
-    if (lv === "hard") { COLS = 45; ROWS = 30; CELL = 30; }
-
-    resize();
-    generateMaze();
-
-    startX = CELL / 2;
-    startY = CELL / 2;
-    finishX = (COLS - 1) * CELL + CELL / 2;
-    finishY = (ROWS - 1) * CELL + CELL / 2;
-
-    playerX = startX;
-    playerY = startY;
-    lightX = startX;
-    lightY = startY;
-
-    successEl.classList.remove("show");
-}
-
-// 初始
-setDifficulty("normal");
-
-// 主迴圈
-function loop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawLighting();
-    checkGoal();
     requestAnimationFrame(loop);
 }
 loop();
+
+/* ================= 滑鼠 ================= */
+canvas.addEventListener("mousemove",e=>{
+    const r=canvas.getBoundingClientRect();
+    targetX=e.clientX-r.left;
+    targetY=e.clientY-r.top;
+});
+
+/* ================= 難度 ================= */
+function startGame(l){
+    successEl.classList.remove("show");
+    if(l==="easy"){COLS=15;ROWS=10;CELL=50;SPEED=3;lightRadius=220;}
+    if(l==="normal"){COLS=30;ROWS=20;CELL=40;SPEED=3;lightRadius=200;}
+    if(l==="hard"){COLS=45;ROWS=30;CELL=30;SPEED=2.5;lightRadius=170;}
+    generateMaze();
+}
+generateMaze();
 </script>
 </body>
 </html>
