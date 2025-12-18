@@ -51,7 +51,6 @@ canvas {
     background: rgba(255,255,255,0.2);
     color: white;
     cursor: pointer;
-    backdrop-filter: blur(4px);
 }
 </style>
 </head>
@@ -75,7 +74,7 @@ const ctx = canvas.getContext("2d");
 // 迷宮尺寸
 let COLS = 30, ROWS = 20, CELL = 40;
 
-// 光圈 & 人物
+// 人物 & 光圈
 let player = { x: 0, y: 0, r: 8 };
 let lightRadius = 200;
 const speed = 4;
@@ -83,13 +82,13 @@ const speed = 4;
 // 起點終點
 let startX, startY, finishX, finishY;
 
-// 迷宮資料
+// 迷宮
 let grid = [];
 
 // 成功顯示
 const successEl = document.getElementById("success");
 
-// ================= 建立迷宮 =================
+// ================= 迷宮生成 =================
 function createGrid(){
     const g=[];
     for(let r=0;r<ROWS;r++){
@@ -107,7 +106,7 @@ function createGrid(){
 
 function generateMaze(){
     const stack=[];
-    let current = grid[0][0];
+    let current=grid[0][0];
     current.visited=true;
 
     while(true){
@@ -127,20 +126,20 @@ function generateMaze(){
             stack.push(current);
             current=next;
             current.visited=true;
-        }else if(stack.length) current=stack.pop();
+        } else if(stack.length) current=stack.pop();
         else break;
     }
 }
 
-// ================= 繪製迷宮 =================
+// ================= 繪製 =================
 function drawMazeTo(c){
-    c.strokeStyle="#ffffff";
+    c.strokeStyle="#fff";
     c.lineWidth=3;
 
     for(let r=0;r<ROWS;r++){
-        for(let c2=0;c2<COLS;c2++){
-            const cell=grid[r][c2];
-            const x=c2*CELL,y=r*CELL;
+        for(let col=0;col<COLS;col++){
+            const cell=grid[r][col];
+            const x=col*CELL, y=r*CELL;
             c.beginPath();
             if(cell.walls.top) c.moveTo(x,y),c.lineTo(x+CELL,y);
             if(cell.walls.right) c.moveTo(x+CELL,y),c.lineTo(x+CELL,y+CELL);
@@ -189,51 +188,55 @@ function drawLighting(){
     ctx.drawImage(off,0,0);
 }
 
-// ================= 碰撞判定 =================
-function canMove(nx,ny){
-    const c = Math.floor(nx / CELL);
-    const r = Math.floor(ny / CELL);
-    if(r<0||c<0||r>=ROWS||c>=COLS) return false;
+// ================= 真正的牆壁碰撞 =================
+function canMove(dx,dy){
+    const col = Math.floor(player.x / CELL);
+    const row = Math.floor(player.y / CELL);
+    const cell = grid[row][col];
+
+    if(dx < 0 && cell.walls.left) return false;
+    if(dx > 0 && cell.walls.right) return false;
+    if(dy < 0 && cell.walls.top) return false;
+    if(dy > 0 && cell.walls.bottom) return false;
+
     return true;
 }
 
-// ================= 鍵盤控制 =================
+// ================= 鍵盤 =================
 document.addEventListener("keydown",e=>{
-    let nx=player.x, ny=player.y;
-    if(e.key==="ArrowUp") ny-=speed;
-    if(e.key==="ArrowDown") ny+=speed;
-    if(e.key==="ArrowLeft") nx-=speed;
-    if(e.key==="ArrowRight") nx+=speed;
-    if(canMove(nx,ny)){
-        player.x=nx;
-        player.y=ny;
+    let dx=0, dy=0;
+    if(e.key==="ArrowUp") dy=-speed;
+    if(e.key==="ArrowDown") dy=speed;
+    if(e.key==="ArrowLeft") dx=-speed;
+    if(e.key==="ArrowRight") dx=speed;
+
+    if(canMove(dx,dy)){
+        player.x += dx;
+        player.y += dy;
     }
 });
 
-// ================= 目標 =================
+// ================= 其他 =================
 function checkGoal(){
     if(Math.hypot(player.x-finishX,player.y-finishY)<CELL*0.4){
         successEl.classList.add("show");
     }
 }
 
-// ================= 重建 =================
 function rebuildMaze(){
     grid=createGrid();
     generateMaze();
-
-    canvas.width = COLS*CELL;
-    canvas.height = ROWS*CELL;
+    canvas.width=COLS*CELL;
+    canvas.height=ROWS*CELL;
 
     startX=CELL/2; startY=CELL/2;
     finishX=(COLS-1)*CELL+CELL/2;
     finishY=(ROWS-1)*CELL+CELL/2;
-
     player.x=startX; player.y=startY;
+
     successEl.classList.remove("show");
 }
 
-// ================= 難度 =================
 function setDifficulty(l){
     if(l==="easy"){COLS=20;ROWS=14;CELL=50;}
     if(l==="normal"){COLS=30;ROWS=20;CELL=40;}
@@ -243,7 +246,7 @@ function setDifficulty(l){
 
 setDifficulty("normal");
 
-// ================= 主迴圈 =================
+// ================= Loop =================
 function loop(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawLighting();
