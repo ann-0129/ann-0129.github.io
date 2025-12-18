@@ -1,59 +1,92 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>迷宮・光照探索</title>
+<meta charset="UTF-8" />
+<title>迷宮 + 光照效果</title>
 
 <style>
-body{
-    margin:0;
-    overflow:hidden;
-    background:linear-gradient(180deg,#001f3f,#000000);
+body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(180deg, #001f3f, #000000);
+    height: 100vh;
+    overflow: hidden;
 }
-canvas{
-    display:block;
-    margin:0 auto;
-    background:transparent;
+
+canvas {
+    background: transparent;
+    display: block;
+    margin: 0 auto;
 }
-#success{
-    position:fixed;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    font-size:60px;
-    font-weight:bold;
-    color:white;
-    opacity:0;
-    transition:0.8s;
-    pointer-events:none;
-    text-shadow:0 0 20px white;
+
+#success {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 60px;
+    color: white;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    pointer-events: none;
+    text-shadow: 0 0 20px white;
 }
-#success.show{opacity:1;}
+
+#success.show { opacity: 1; }
+
+.buttons {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.buttons button {
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+}
 </style>
 </head>
 
 <body>
+
+<div class="buttons">
+    <button onclick="setDifficulty('easy')">簡單</button>
+    <button onclick="setDifficulty('normal')">普通</button>
+    <button onclick="setDifficulty('hard')">困難</button>
+</div>
+
 <canvas id="mazeCanvas"></canvas>
 <div id="success">成功</div>
 
 <script>
-// ================= 基本設定 =================
+// ================= Canvas =================
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = innerWidth;
-canvas.height = innerHeight;
 
-const COLS = 30;
-const ROWS = 20;
-const CELL = 40;
+// 迷宮尺寸
+let COLS = 30, ROWS = 20, CELL = 40;
 
-let lightX = CELL / 2;
-let lightY = CELL / 2;
-const lightRadius = 200;
+// 光圈 & 人物
+let player = { x: 0, y: 0, r: 8 };
+let lightRadius = 200;
+const speed = 4;
 
-const start = { x: CELL/2, y: CELL/2 };
-const end   = { x:(COLS-1)*CELL + CELL/2, y:(ROWS-1)*CELL + CELL/2 };
+// 起點終點
+let startX, startY, finishX, finishY;
 
+// 迷宮資料
+let grid = [];
+
+// 成功顯示
 const successEl = document.getElementById("success");
 
 // ================= 建立迷宮 =================
@@ -71,8 +104,6 @@ function createGrid(){
     }
     return g;
 }
-
-let grid = createGrid();
 
 function generateMaze(){
     const stack=[];
@@ -99,15 +130,9 @@ function generateMaze(){
         }else if(stack.length) current=stack.pop();
         else break;
     }
-
-    // 光源回到起點
-    lightX = start.x;
-    lightY = start.y;
 }
 
-generateMaze();
-
-// ================= 畫迷宮線 =================
+// ================= 繪製迷宮 =================
 function drawMazeTo(c){
     c.strokeStyle="#ffffff";
     c.lineWidth=3;
@@ -124,9 +149,21 @@ function drawMazeTo(c){
             c.stroke();
         }
     }
+
+    // 起點
+    c.fillStyle="rgba(0,255,0,0.9)";
+    c.beginPath();
+    c.arc(startX,startY,CELL*0.25,0,Math.PI*2);
+    c.fill();
+
+    // 終點
+    c.fillStyle="rgba(255,0,0,0.9)";
+    c.beginPath();
+    c.arc(finishX,finishY,CELL*0.3,0,Math.PI*2);
+    c.fill();
 }
 
-// ================= 光照 + 迷宮 =================
+// ================= 光照 =================
 function drawLighting(){
     const off=document.createElement("canvas");
     off.width=canvas.width;
@@ -135,22 +172,13 @@ function drawLighting(){
 
     drawMazeTo(o);
 
-    // 起點
+    // 人物
     o.fillStyle="white";
     o.beginPath();
-    o.arc(start.x,start.y,6,0,Math.PI*2);
+    o.arc(player.x,player.y,player.r,0,Math.PI*2);
     o.fill();
 
-    // 終點脈動
-    const t=Date.now()/600;
-    o.strokeStyle="rgba(255,255,255,0.9)";
-    o.lineWidth=2;
-    o.beginPath();
-    o.arc(end.x,end.y,10+Math.sin(t)*4,0,Math.PI*2);
-    o.stroke();
-
-    // 光圈遮罩
-    const g=o.createRadialGradient(lightX,lightY,0,lightX,lightY,lightRadius);
+    const g=o.createRadialGradient(player.x,player.y,0,player.x,player.y,lightRadius);
     g.addColorStop(0,"rgba(255,255,255,1)");
     g.addColorStop(1,"rgba(255,255,255,0)");
 
@@ -161,25 +189,69 @@ function drawLighting(){
     ctx.drawImage(off,0,0);
 }
 
+// ================= 碰撞判定 =================
+function canMove(nx,ny){
+    const c = Math.floor(nx / CELL);
+    const r = Math.floor(ny / CELL);
+    if(r<0||c<0||r>=ROWS||c>=COLS) return false;
+    return true;
+}
+
+// ================= 鍵盤控制 =================
+document.addEventListener("keydown",e=>{
+    let nx=player.x, ny=player.y;
+    if(e.key==="ArrowUp") ny-=speed;
+    if(e.key==="ArrowDown") ny+=speed;
+    if(e.key==="ArrowLeft") nx-=speed;
+    if(e.key==="ArrowRight") nx+=speed;
+    if(canMove(nx,ny)){
+        player.x=nx;
+        player.y=ny;
+    }
+});
+
+// ================= 目標 =================
+function checkGoal(){
+    if(Math.hypot(player.x-finishX,player.y-finishY)<CELL*0.4){
+        successEl.classList.add("show");
+    }
+}
+
+// ================= 重建 =================
+function rebuildMaze(){
+    grid=createGrid();
+    generateMaze();
+
+    canvas.width = COLS*CELL;
+    canvas.height = ROWS*CELL;
+
+    startX=CELL/2; startY=CELL/2;
+    finishX=(COLS-1)*CELL+CELL/2;
+    finishY=(ROWS-1)*CELL+CELL/2;
+
+    player.x=startX; player.y=startY;
+    successEl.classList.remove("show");
+}
+
+// ================= 難度 =================
+function setDifficulty(l){
+    if(l==="easy"){COLS=20;ROWS=14;CELL=50;}
+    if(l==="normal"){COLS=30;ROWS=20;CELL=40;}
+    if(l==="hard"){COLS=45;ROWS=30;CELL=30;}
+    rebuildMaze();
+}
+
+setDifficulty("normal");
+
 // ================= 主迴圈 =================
 function loop(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawLighting();
-
-    if(Math.hypot(lightX-end.x,lightY-end.y)<20){
-        successEl.classList.add("show");
-    }
-
+    checkGoal();
     requestAnimationFrame(loop);
 }
 loop();
-
-// ================= 滑鼠控制 =================
-canvas.addEventListener("mousemove",e=>{
-    const r=canvas.getBoundingClientRect();
-    lightX=e.clientX-r.left;
-    lightY=e.clientY-r.top;
-});
 </script>
+
 </body>
 </html>
