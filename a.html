@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>迷宮 + 光照</title>
+<title>迷宮・光照探索</title>
 
 <style>
 body{
@@ -10,22 +10,22 @@ body{
     overflow:hidden;
     background:linear-gradient(180deg,#001f3f,#000000);
 }
-canvas{display:block;}
-#ui{
-    position:fixed;top:20px;right:20px;
-    display:flex;gap:10px;z-index:10;
-}
-#ui button{
-    padding:8px 14px;
-    border:none;border-radius:6px;
-    background:#324376;color:#fff;cursor:pointer;
+canvas{
+    display:block;
+    margin:0 auto;
+    background:transparent;
 }
 #success{
-    position:fixed;top:50%;left:50%;
+    position:fixed;
+    left:50%;
+    top:50%;
     transform:translate(-50%,-50%);
-    font-size:60px;color:white;
-    font-weight:bold;opacity:0;
-    transition:.8s;pointer-events:none;
+    font-size:60px;
+    font-weight:bold;
+    color:white;
+    opacity:0;
+    transition:0.8s;
+    pointer-events:none;
     text-shadow:0 0 20px white;
 }
 #success.show{opacity:1;}
@@ -33,32 +33,30 @@ canvas{display:block;}
 </head>
 
 <body>
-<div id="ui">
-    <button onclick="startGame('easy')">簡單</button>
-    <button onclick="startGame('normal')">普通</button>
-    <button onclick="startGame('hard')">困難</button>
-</div>
-<div id="success">成功</div>
 <canvas id="mazeCanvas"></canvas>
+<div id="success">成功</div>
 
 <script>
-/* ========== 基本設定 ========== */
+// ================= 基本設定 =================
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let COLS=30, ROWS=20, CELL=40;
-let grid=[];
-let player={x:0,y:0};
-let target={x:0,y:0};
-let speed=3;
-let lightRadius=200;
-let finish={x:0,y:0};
+const COLS = 30;
+const ROWS = 20;
+const CELL = 40;
 
-const successEl=document.getElementById("success");
+let lightX = CELL / 2;
+let lightY = CELL / 2;
+const lightRadius = 200;
 
-/* ========== 迷宮 ========== */
+const start = { x: CELL/2, y: CELL/2 };
+const end   = { x:(COLS-1)*CELL + CELL/2, y:(ROWS-1)*CELL + CELL/2 };
+
+const successEl = document.getElementById("success");
+
+// ================= 建立迷宮 =================
 function createGrid(){
     const g=[];
     for(let r=0;r<ROWS;r++){
@@ -74,76 +72,85 @@ function createGrid(){
     return g;
 }
 
+let grid = createGrid();
+
 function generateMaze(){
-    grid=createGrid();
     const stack=[];
-    let cur=grid[0][0];
-    cur.visited=true;
+    let current = grid[0][0];
+    current.visited=true;
 
     while(true){
-        const {r,c}=cur;
         const n=[];
-        if(r>0&&!grid[r-1][c].visited)n.push(grid[r-1][c]);
-        if(c<COLS-1&&!grid[r][c+1].visited)n.push(grid[r][c+1]);
-        if(r<ROWS-1&&!grid[r+1][c].visited)n.push(grid[r+1][c]);
-        if(c>0&&!grid[r][c-1].visited)n.push(grid[r][c-1]);
+        const {r,c}=current;
+        if(r>0&&!grid[r-1][c].visited) n.push(grid[r-1][c]);
+        if(c<COLS-1&&!grid[r][c+1].visited) n.push(grid[r][c+1]);
+        if(r<ROWS-1&&!grid[r+1][c].visited) n.push(grid[r+1][c]);
+        if(c>0&&!grid[r][c-1].visited) n.push(grid[r][c-1]);
 
         if(n.length){
             const next=n[Math.random()*n.length|0];
-            if(next.r===r-1){cur.walls.top=false;next.walls.bottom=false;}
-            if(next.c===c+1){cur.walls.right=false;next.walls.left=false;}
-            if(next.r===r+1){cur.walls.bottom=false;next.walls.top=false;}
-            if(next.c===c-1){cur.walls.left=false;next.walls.right=false;}
-            stack.push(cur);
-            cur=next;
-            cur.visited=true;
-        }else if(stack.length){
-            cur=stack.pop();
-        }else break;
+            if(next.r===r-1){current.walls.top=false;next.walls.bottom=false;}
+            if(next.c===c+1){current.walls.right=false;next.walls.left=false;}
+            if(next.r===r+1){current.walls.bottom=false;next.walls.top=false;}
+            if(next.c===c-1){current.walls.left=false;next.walls.right=false;}
+            stack.push(current);
+            current=next;
+            current.visited=true;
+        }else if(stack.length) current=stack.pop();
+        else break;
     }
 
-    // 起點
-    player.x = CELL/2;
-    player.y = CELL/2;
-    target.x = player.x;
-    target.y = player.y;
-
-    // 終點
-    finish.x=(COLS-1)*CELL+CELL/2;
-    finish.y=(ROWS-1)*CELL+CELL/2;
+    // 光源回到起點
+    lightX = start.x;
+    lightY = start.y;
 }
 
-/* ========== 牆線 ========== */
-function drawMazeLinesTo(c){
-    c.strokeStyle="#fff";
+generateMaze();
+
+// ================= 畫迷宮線 =================
+function drawMazeTo(c){
+    c.strokeStyle="#ffffff";
     c.lineWidth=3;
+
     for(let r=0;r<ROWS;r++){
-        for(let col=0;col<COLS;col++){
-            const cell=grid[r][col];
-            const x=col*CELL,y=r*CELL;
+        for(let c2=0;c2<COLS;c2++){
+            const cell=grid[r][c2];
+            const x=c2*CELL,y=r*CELL;
             c.beginPath();
-            if(cell.walls.top)c.moveTo(x,y),c.lineTo(x+CELL,y);
-            if(cell.walls.right)c.moveTo(x+CELL,y),c.lineTo(x+CELL,y+CELL);
-            if(cell.walls.bottom)c.moveTo(x,y+CELL),c.lineTo(x+CELL,y+CELL);
-            if(cell.walls.left)c.moveTo(x,y),c.lineTo(x,y+CELL);
+            if(cell.walls.top) c.moveTo(x,y),c.lineTo(x+CELL,y);
+            if(cell.walls.right) c.moveTo(x+CELL,y),c.lineTo(x+CELL,y+CELL);
+            if(cell.walls.bottom) c.moveTo(x,y+CELL),c.lineTo(x+CELL,y+CELL);
+            if(cell.walls.left) c.moveTo(x,y),c.lineTo(x,y+CELL);
             c.stroke();
         }
     }
 }
 
-/* ========== 光照（你原本正確的） ========== */
+// ================= 光照 + 迷宮 =================
 function drawLighting(){
     const off=document.createElement("canvas");
     off.width=canvas.width;
     off.height=canvas.height;
     const o=off.getContext("2d");
 
-    drawMazeLinesTo(o);
+    drawMazeTo(o);
 
-    const g=o.createRadialGradient(
-        player.x,player.y,0,
-        player.x,player.y,lightRadius
-    );
+    // 起點
+    o.fillStyle="white";
+    o.beginPath();
+    o.arc(start.x,start.y,6,0,Math.PI*2);
+    o.fill();
+
+    // 終點脈動
+    const t=Date.now()/600;
+    o.strokeStyle="rgba(255,255,255,0.9)";
+    o.lineWidth=2;
+    o.beginPath();
+    o.arc(end.x,end.y,10+Math.sin(t)*4,0,Math.PI*2);
+    o.stroke();
+
+    // 光圈遮罩
+    const g=o.createRadialGradient(lightX,lightY,0,lightX,lightY,lightRadius);
     g.addColorStop(0,"rgba(255,255,255,1)");
     g.addColorStop(1,"rgba(255,255,255,0)");
 
@@ -154,62 +161,25 @@ function drawLighting(){
     ctx.drawImage(off,0,0);
 }
 
-/* ========== 正確的「不穿牆」判定（重點修正） ========== */
-function canMove(nx,ny){
-    const cx=Math.floor(player.x/CELL);
-    const cy=Math.floor(player.y/CELL);
-    const cell=grid[cy][cx];
-    const dx=nx-player.x;
-    const dy=ny-player.y;
-
-    if(dx>0 && cell.walls.right) return false;
-    if(dx<0 && cell.walls.left)  return false;
-    if(dy>0 && cell.walls.bottom)return false;
-    if(dy<0 && cell.walls.top)   return false;
-    return true;
-}
-
-/* ========== 主迴圈 ========== */
+// ================= 主迴圈 =================
 function loop(){
-    const dx=target.x-player.x;
-    const dy=target.y-player.y;
-    const d=Math.hypot(dx,dy);
-
-    if(d>1){
-        const nx=player.x+dx/d*speed;
-        const ny=player.y+dy/d*speed;
-        if(canMove(nx,ny)){
-            player.x=nx;
-            player.y=ny;
-        }
-    }
-
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawLighting();
 
-    if(Math.hypot(player.x-finish.x,player.y-finish.y)<CELL/2){
+    if(Math.hypot(lightX-end.x,lightY-end.y)<20){
         successEl.classList.add("show");
     }
+
     requestAnimationFrame(loop);
 }
 loop();
 
-/* ========== 滑鼠 ========== */
+// ================= 滑鼠控制 =================
 canvas.addEventListener("mousemove",e=>{
     const r=canvas.getBoundingClientRect();
-    target.x=e.clientX-r.left;
-    target.y=e.clientY-r.top;
+    lightX=e.clientX-r.left;
+    lightY=e.clientY-r.top;
 });
-
-/* ========== 難度 ========== */
-function startGame(l){
-    successEl.classList.remove("show");
-    if(l==="easy"){COLS=15;ROWS=10;CELL=50;speed=3;lightRadius=230;}
-    if(l==="normal"){COLS=30;ROWS=20;CELL=40;speed=3;lightRadius=200;}
-    if(l==="hard"){COLS=45;ROWS=30;CELL=30;speed=2.5;lightRadius=170;}
-    generateMaze();
-}
-generateMaze();
 </script>
 </body>
 </html>
