@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
-    <title>Maze</title>
+    <title>MAZE</title>
 
     <style>
         body {
@@ -99,6 +99,10 @@
             cursor: pointer;
             backdrop-filter: blur(4px);
         }
+            button::before,
+            button::after {
+                content: none !important;
+            }
     </style>
 </head>
 <body>
@@ -106,14 +110,14 @@
 <div id="startScreen">
     <div class="title">Maze</div>
     <div class="buttons">
-        <button onclick="setDifficulty('easy')">簡單</button>
-        <button onclick="setDifficulty('normal')">普通</button>
-        <button onclick="setDifficulty('hard')">困難</button>
+        <button onclick="setDifficulty('easy')">EASY</button>
+        <button onclick="setDifficulty('normal')">NORMAL</button>
+        <button onclick="setDifficulty('hard')">HARD</button>
     </div>
 </div>
 
 <canvas id="mazeCanvas"></canvas>
-<div id="success">成功</div>
+<div id="success">SUCCESS</div>
 <button id="playAgain">Play Again</button>
 
 <script>
@@ -126,9 +130,6 @@ let grid;
 let player = { x: 0, y: 0, r: 6 };
 let lightRadius = 200;
 let finish = { x: 0, y: 0 };
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
 
 const successEl = document.getElementById("success");
 const playAgainBtn = document.getElementById("playAgain");
@@ -182,6 +183,11 @@ function generateMaze() {
             if (d==='left' && c>0) { cell.walls.left=false; grid[r][c-1].walls.right=false; }
         }
     }
+
+    // 🔹 保證底部牆存在
+    for (let c = 0; c < COLS; c++) {
+        grid[ROWS-1][c].walls.bottom = true;
+    }
 }
 
 function drawMazeTo(c) {
@@ -198,9 +204,11 @@ function drawMazeTo(c) {
         c.stroke();
     }
 
+    // 起點
     c.fillStyle='lime';
     c.beginPath(); c.arc(CELL/2,CELL/2,8,0,Math.PI*2); c.fill();
 
+    // 終點
     c.fillStyle='red';
     c.beginPath(); c.arc(finish.x,finish.y,8,0,Math.PI*2); c.fill();
 }
@@ -222,11 +230,14 @@ function drawLighting() {
 
     ctx.drawImage(off,0,0);
 
+    // 人物
     ctx.fillStyle='white';
     ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
 }
 
 function canMove(nx, ny) {
+    if (nx < player.r || ny < player.r || nx > COLS*CELL - player.r || ny > ROWS*CELL - player.r) return false;
+
     const r = player.r + 1;
     const cx = Math.floor(nx / CELL);
     const cy = Math.floor(ny / CELL);
@@ -300,4 +311,5 @@ rebuild();
 </script>
 </body>
 </html>
+
 
