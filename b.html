@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8" />
     <title>MAZE</title>
-
     <style>
         body {
             margin: 0;
@@ -15,9 +14,9 @@
         }
 
         canvas {
-            background: transparent;
             display: block;
             margin: 0 auto;
+            background: transparent;
         }
 
         #startScreen {
@@ -99,10 +98,6 @@
             cursor: pointer;
             backdrop-filter: blur(4px);
         }
-            button::before,
-            button::after {
-                content: none !important;
-            }
     </style>
 </head>
 <body>
@@ -172,6 +167,7 @@ function generateMaze() {
         else break;
     }
 
+    // 打破牆增加迷路可能性
     const breakRate = 0.08;
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
         if (Math.random() < breakRate) {
@@ -184,10 +180,9 @@ function generateMaze() {
         }
     }
 
-    // 🔹 保證底部牆存在
-    for (let c = 0; c < COLS; c++) {
-        grid[ROWS-1][c].walls.bottom = true;
-    }
+    // 🔹 修正：確保右側最右列和底部最下列有牆
+    for (let r = 0; r < ROWS; r++) grid[r][COLS-1].walls.right = true;
+    for (let c = 0; c < COLS; c++) grid[ROWS-1][c].walls.bottom = true;
 }
 
 function drawMazeTo(c) {
@@ -230,29 +225,24 @@ function drawLighting() {
 
     ctx.drawImage(off,0,0);
 
-    // 人物
     ctx.fillStyle='white';
     ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
 }
 
 function canMove(nx, ny) {
-    if (nx < player.r || ny < player.r || nx > COLS*CELL - player.r || ny > ROWS*CELL - player.r) return false;
-
     const r = player.r + 1;
+    if (nx < r || ny < r || nx > COLS*CELL - r || ny > ROWS*CELL - r) return false;
+
     const cx = Math.floor(nx / CELL);
     const cy = Math.floor(ny / CELL);
     const cell = grid[cy]?.[cx];
     if (!cell) return false;
 
-    const left   = cx * CELL;
-    const right  = (cx + 1) * CELL;
-    const top    = cy * CELL;
-    const bottom = (cy + 1) * CELL;
-
-    if (cell.walls.right && nx + r > right) return false;
-    if (cell.walls.left && nx - r < left) return false;
-    if (cell.walls.bottom && ny + r > bottom) return false;
-    if (cell.walls.top && ny - r < top) return false;
+    const left = cx*CELL, right = (cx+1)*CELL, top = cy*CELL, bottom = (cy+1)*CELL;
+    if (cell.walls.right && nx+r > right) return false;
+    if (cell.walls.left && nx-r < left) return false;
+    if (cell.walls.bottom && ny+r > bottom) return false;
+    if (cell.walls.top && ny-r < top) return false;
 
     return true;
 }
@@ -311,5 +301,3 @@ rebuild();
 </script>
 </body>
 </html>
-
-
