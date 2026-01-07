@@ -132,9 +132,6 @@ let player = { x: 0, y: 0, r: 6 };
 let lightRadius = 200;
 let finish = { x: 0, y: 0 };
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
 const successEl = document.getElementById("success");
 const playAgainBtn = document.getElementById("playAgain");
 
@@ -232,6 +229,14 @@ function drawLighting() {
 }
 
 function canMove(nx, ny) {
+
+    if (
+        nx < player.r ||
+        ny < player.r ||
+        nx > COLS * CELL - player.r ||
+        ny > ROWS * CELL - player.r
+    ) return false;
+    
     const r = player.r + 1;
     const cx = Math.floor(nx / CELL);
     const cy = Math.floor(ny / CELL);
