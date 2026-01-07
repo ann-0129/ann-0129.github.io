@@ -233,9 +233,10 @@ function canMove(nx, ny) {
     if (
         nx < player.r ||
         ny < player.r ||
-        nx > COLS * CELL - player.r ||
-        ny > ROWS * CELL - player.r
+        nx > canvas.width - player.r ||
+        ny > canvas.height - player.r
     ) return false;
+
     
     const r = player.r + 1;
     const cx = Math.floor(nx / CELL);
