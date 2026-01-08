@@ -1,111 +1,90 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8" />
-    <title>MAZE</title>
+<meta charset="UTF-8" />
+<title>MAZE</title>
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(180deg, #001f3f, #000000);
-            height: 100vh;
-            overflow: hidden;
-            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-        }
+<style>
+body {
+    margin: 0;
+    background: linear-gradient(180deg, #001f3f, #000000);
+    height: 100vh;
+    overflow: hidden;
+    font-family: "Segoe UI","Helvetica Neue",Arial,sans-serif;
+}
+canvas {
+    display: block;
+    margin: 0 auto;
+}
+#startScreen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    background: linear-gradient(180deg, #001f3f, #000000);
+    z-index: 20;
+    transition: transform 1s ease;
+}
+#startScreen.hide { transform: translateY(-100%); }
 
-        canvas {
-            background: transparent;
-            display: block;
-            margin: 0 auto;
-        }
+.title {
+    font-size: 72px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    color: white;
+}
 
-        #startScreen {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 30px;
-            background: linear-gradient(180deg, #001f3f, #000000);
-            z-index: 20;
-            transition: transform 1s ease;
-        }
+.buttons { display: flex; gap: 16px; }
+.buttons button {
+    padding: 12px 28px;
+    font-size: 18px;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,.4);
+    background: transparent;
+    color: white;
+    cursor: pointer;
+}
 
-        #startScreen.hide {
-            transform: translateY(-100%);
-        }
+#success {
+    position: fixed;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 60px;
+    color: white;
+    opacity: 0;
+    transition: opacity .6s;
+    pointer-events: none;
+}
+#success.show { opacity: 1; }
 
-        .title {
-            font-size: 72px;
-            font-weight: 300;
-            letter-spacing: 6px;
-            color: white;
-        }
-
-        #success {
-            position: fixed;
-            top: 45%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 60px;
-            color: white;
-            font-weight: bold;
-            opacity: 0;
-            transition: opacity 0.6s ease;
-            pointer-events: none;
-            text-shadow: 0 0 20px white;
-            z-index: 10;
-        }
-        #success.show { opacity: 1; }
-
-        #playAgain {
-            position: fixed;
-            top: 60%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 14px 36px;
-            font-size: 20px;
-            border-radius: 30px;
-            border: 1px solid rgba(255,255,255,0.6);
-            background: rgba(0,0,0,0.4);
-            color: white;
-            cursor: pointer;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease, transform 0.3s ease;
-            backdrop-filter: blur(6px);
-            z-index: 10;
-        }
-
-        #playAgain.show {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translate(-50%, -50%) scale(1.05);
-        }
-
-        .buttons {
-            display: flex;
-            gap: 16px;
-        }
-        .buttons button {
-            padding: 12px 28px;
-            font-size: 18px;
-            border-radius: 30px;
-            border: 1px solid rgba(255,255,255,0.4);
-            background: transparent;
-            color: white;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-        }
-            button::before,
-            button::after {
-                content: none !important;
-            }
-
-    </style>
+#playAgain {
+    position: fixed;
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    padding: 14px 36px;
+    font-size: 20px;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,.6);
+    background: rgba(0,0,0,.4);
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s, transform .3s;
+}
+#playAgain.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%,-50%) scale(1.05);
+}
+</style>
 </head>
+
 <body>
 
 <div id="startScreen">
@@ -125,180 +104,160 @@
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
 
-let COLS = 30, ROWS = 20, CELL = 40;
+let COLS=30, ROWS=20, CELL=40;
 let grid;
 
-let player = { x: 0, y: 0, r: 6 };
+let player = { x:0, y:0, r:6 };
+let moveSpeed = 4;
 let lightRadius = 200;
-let finish = { x: 0, y: 0 };
+let finish = { x:0, y:0 };
 
 const successEl = document.getElementById("success");
 const playAgainBtn = document.getElementById("playAgain");
 
-function createGrid() {
-    const g = [];
-    for (let r = 0; r < ROWS; r++) {
-        const row = [];
-        for (let c = 0; c < COLS; c++) {
-            row.push({ r, c, visited: false, walls: { top: true, right: true, bottom: true, left: true } });
-        }
-        g.push(row);
-    }
-    return g;
+function resizeCanvas(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+function computeCellSize(){
+    CELL = Math.floor(Math.min(canvas.width/COLS, canvas.height/ROWS));
 }
 
-function generateMaze() {
-    const stack = [];
-    let current = grid[0][0];
-    current.visited = true;
+function createGrid(){
+    return Array.from({length:ROWS},(_,r)=>
+        Array.from({length:COLS},(_,c)=>({
+            r,c,visited:false,
+            walls:{top:true,right:true,bottom:true,left:true}
+        }))
+    );
+}
 
-    while (true) {
-        const n = [];
-        const { r, c } = current;
-        if (r > 0 && !grid[r-1][c].visited) n.push(grid[r-1][c]);
-        if (c < COLS-1 && !grid[r][c+1].visited) n.push(grid[r][c+1]);
-        if (r < ROWS-1 && !grid[r+1][c].visited) n.push(grid[r+1][c]);
-        if (c > 0 && !grid[r][c-1].visited) n.push(grid[r][c-1]);
+function generateMaze(){
+    const stack=[];
+    let cur=grid[0][0];
+    cur.visited=true;
 
-        if (n.length) {
-            const next = n[Math.random()*n.length|0];
-            if (next.r === r-1) { current.walls.top=false; next.walls.bottom=false; }
-            if (next.c === c+1) { current.walls.right=false; next.walls.left=false; }
-            if (next.r === r+1) { current.walls.bottom=false; next.walls.top=false; }
-            if (next.c === c-1) { current.walls.left=false; next.walls.right=false; }
-            stack.push(current);
-            current = next;
-            current.visited = true;
-        } else if (stack.length) current = stack.pop();
+    while(true){
+        const {r,c}=cur;
+        const n=[];
+        if(r>0&&!grid[r-1][c].visited) n.push(grid[r-1][c]);
+        if(c<COLS-1&&!grid[r][c+1].visited) n.push(grid[r][c+1]);
+        if(r<ROWS-1&&!grid[r+1][c].visited) n.push(grid[r+1][c]);
+        if(c>0&&!grid[r][c-1].visited) n.push(grid[r][c-1]);
+
+        if(n.length){
+            const next=n[Math.random()*n.length|0];
+            if(next.r===r-1){cur.walls.top=false;next.walls.bottom=false;}
+            if(next.c===c+1){cur.walls.right=false;next.walls.left=false;}
+            if(next.r===r+1){cur.walls.bottom=false;next.walls.top=false;}
+            if(next.c===c-1){cur.walls.left=false;next.walls.right=false;}
+            stack.push(cur);
+            cur=next;
+            cur.visited=true;
+        } else if(stack.length) cur=stack.pop();
         else break;
     }
-
-    const breakRate = 0.08;
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-        if (Math.random() < breakRate) {
-            const cell = grid[r][c];
-            const d = ['top','right','bottom','left'][Math.random()*4|0];
-            if (d==='top' && r>0) { cell.walls.top=false; grid[r-1][c].walls.bottom=false; }
-            if (d==='right' && c<COLS-1) { cell.walls.right=false; grid[r][c+1].walls.left=false; }
-            if (d==='bottom' && r<ROWS-1) { cell.walls.bottom=false; grid[r+1][c].walls.top=false; }
-            if (d==='left' && c>0) { cell.walls.left=false; grid[r][c-1].walls.right=false; }
-        }
-    }
 }
 
-function drawMazeTo(c) {
-    c.strokeStyle = '#fff';
-    c.lineWidth = 3;
-    for (let r=0;r<ROWS;r++) for (let c2=0;c2<COLS;c2++) {
-        const cell = grid[r][c2];
-        const x=c2*CELL, y=r*CELL;
-        c.beginPath();
-        if(cell.walls.top) c.moveTo(x,y),c.lineTo(x+CELL,y);
-        if(cell.walls.right) c.moveTo(x+CELL,y),c.lineTo(x+CELL,y+CELL);
-        if(cell.walls.bottom) c.moveTo(x,y+CELL),c.lineTo(x+CELL,y+CELL);
-        if(cell.walls.left) c.moveTo(x,y),c.lineTo(x,y+CELL);
-        c.stroke();
+function drawMaze(ctx2){
+    ctx2.strokeStyle="#fff";
+    ctx2.lineWidth=3;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+        const cell=grid[r][c];
+        const x=c*CELL,y=r*CELL;
+        ctx2.beginPath();
+        if(cell.walls.top) ctx2.moveTo(x,y),ctx2.lineTo(x+CELL,y);
+        if(cell.walls.right) ctx2.moveTo(x+CELL,y),ctx2.lineTo(x+CELL,y+CELL);
+        if(cell.walls.bottom) ctx2.moveTo(x,y+CELL),ctx2.lineTo(x+CELL,y+CELL);
+        if(cell.walls.left) ctx2.moveTo(x,y),ctx2.lineTo(x,y+CELL);
+        ctx2.stroke();
     }
 
-    c.fillStyle='lime';
-    c.beginPath(); c.arc(CELL/2,CELL/2,8,0,Math.PI*2); c.fill();
-
-    c.fillStyle='red';
-    c.beginPath(); c.arc(finish.x,finish.y,8,0,Math.PI*2); c.fill();
+    ctx2.fillStyle="red";
+    ctx2.beginPath();
+    ctx2.arc(finish.x,finish.y,player.r+2,0,Math.PI*2);
+    ctx2.fill();
 }
 
-function drawLighting() {
-    const off=document.createElement('canvas');
-    off.width=canvas.width; off.height=canvas.height;
-    const o=off.getContext('2d');
+function drawLighting(){
+    const off=document.createElement("canvas");
+    off.width=canvas.width;
+    off.height=canvas.height;
+    const o=off.getContext("2d");
 
-    drawMazeTo(o);
+    drawMaze(o);
 
     const g=o.createRadialGradient(player.x,player.y,0,player.x,player.y,lightRadius);
-    g.addColorStop(0,'rgba(255,255,255,1)');
-    g.addColorStop(1,'rgba(255,255,255,0)');
-
-    o.globalCompositeOperation='destination-in';
+    g.addColorStop(0,"rgba(255,255,255,1)");
+    g.addColorStop(1,"rgba(255,255,255,0)");
+    o.globalCompositeOperation="destination-in";
     o.fillStyle=g;
     o.fillRect(0,0,off.width,off.height);
 
     ctx.drawImage(off,0,0);
 
-    ctx.fillStyle='white';
-    ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="white";
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+    ctx.fill();
 }
 
-function canMove(nx, ny) {
-
-    if (
-        nx < player.r ||
-        ny < player.r ||
-        nx > canvas.width - player.r ||
-        ny > canvas.height - player.r
-    ) return false;
-
-    
-    const r = player.r + 1;
-    const cx = Math.floor(nx / CELL);
-    const cy = Math.floor(ny / CELL);
-    const cell = grid[cy]?.[cx];
-    if (!cell) return false;
-
-    const left   = cx * CELL;
-    const right  = (cx + 1) * CELL;
-    const top    = cy * CELL;
-    const bottom = (cy + 1) * CELL;
-
-    if (cell.walls.right && nx + r > right) return false;
-    if (cell.walls.left && nx - r < left) return false;
-    if (cell.walls.bottom && ny + r > bottom) return false;
-    if (cell.walls.top && ny - r < top) return false;
-
+function canMove(nx,ny){
+    if(nx<player.r||ny<player.r||nx>COLS*CELL-player.r||ny>ROWS*CELL-player.r) return false;
+    const cx=Math.floor(nx/CELL), cy=Math.floor(ny/CELL);
+    const cell=grid[cy]?.[cx];
+    if(!cell) return false;
+    const r=player.r+1;
+    if(cell.walls.right && nx+r>(cx+1)*CELL) return false;
+    if(cell.walls.left && nx-r<cx*CELL) return false;
+    if(cell.walls.bottom && ny+r>(cy+1)*CELL) return false;
+    if(cell.walls.top && ny-r<cy*CELL) return false;
     return true;
 }
 
-window.addEventListener('keydown', e => {
-    const speed = 4;
-    let nx = player.x;
-    let ny = player.y;
-    if (e.key === 'ArrowLeft') nx -= speed;
-    if (e.key === 'ArrowRight') nx += speed;
-    if (e.key === 'ArrowUp') ny -= speed;
-    if (e.key === 'ArrowDown') ny += speed;
-    if (canMove(nx, player.y)) player.x = nx;
-    if (canMove(player.x, ny)) player.y = ny;
+window.addEventListener("keydown",e=>{
+    let nx=player.x, ny=player.y;
+    if(e.key==="ArrowLeft") nx-=moveSpeed;
+    if(e.key==="ArrowRight") nx+=moveSpeed;
+    if(e.key==="ArrowUp") ny-=moveSpeed;
+    if(e.key==="ArrowDown") ny+=moveSpeed;
+    if(canMove(nx,player.y)) player.x=nx;
+    if(canMove(player.x,ny)) player.y=ny;
 });
 
 function checkGoal(){
     if(Math.hypot(player.x-finish.x,player.y-finish.y)<10){
-        successEl.classList.add('show');
-        playAgainBtn.classList.add('show');
+        successEl.classList.add("show");
+        playAgainBtn.classList.add("show");
     }
 }
 
 function rebuild(){
+    computeCellSize();
     grid=createGrid();
     generateMaze();
-    player.x=CELL/2; player.y=CELL/2;
+    player.x=CELL/2;
+    player.y=CELL/2;
     finish.x=(COLS-1)*CELL+CELL/2;
     finish.y=(ROWS-1)*CELL+CELL/2;
-    canvas.width=COLS*CELL;
-    canvas.height=ROWS*CELL;
-    successEl.classList.remove('show');
-    playAgainBtn.classList.remove('show');
+    successEl.classList.remove("show");
+    playAgainBtn.classList.remove("show");
 }
 
 function setDifficulty(l){
-    if(l==='easy'){COLS=18;ROWS=12;CELL=50;}
-    if(l==='normal'){COLS=30;ROWS=20;CELL=40;}
-    if(l==='hard'){COLS=45;ROWS=30;CELL=30;}
+    if(l==="easy"){COLS=18;ROWS=12;player.r=6;moveSpeed=4;}
+    if(l==="normal"){COLS=30;ROWS=20;player.r=6;moveSpeed=4;}
+    if(l==="hard"){COLS=45;ROWS=30;player.r=4;moveSpeed=3;}
     rebuild();
-    document.getElementById('startScreen').classList.add('hide');
+    document.getElementById("startScreen").classList.add("hide");
 }
 
-playAgainBtn.addEventListener('click', () => {
-    rebuild();
-});
+playAgainBtn.onclick=()=>{
+    document.getElementById("startScreen").classList.remove("hide");
+};
 
 rebuild();
 
